@@ -1,0 +1,9 @@
+astyle -s4 -S -Y -f -p -H -y -k2 -n -v -z2 perfclient.cpp
+
+./stest |mplayer -demuxer h264es -fps 10 -
+ make -f CMakeFiles/ raspivid
+  1611  make -f CMakeFiles/Makefile2 raspivid
+   1612  
+
+
+   sudo ./raspivid -n  -w 1920 -h 1080 -t 0 -fps 1 -b 62500000 -o udp://192.168.0.23:2333 -v

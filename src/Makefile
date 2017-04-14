@@ -5,29 +5,17 @@ ifndef os
 endif
 
 ifndef arch
-   arch = IA32
+   arch = IA64
 endif
 
-CCFLAGS = -fPIC -Wall -Wextra -D$(os) -finline-functions -O3 -fno-strict-aliasing -fvisibility=hidden
-
-ifeq ($(arch), IA32)
-   CCFLAGS += -DIA32
-endif
-
-ifeq ($(arch), POWERPC)
-   CCFLAGS += -mcpu=powerpc
-endif
-
-ifeq ($(arch), SPARC)
-   CCFLAGS += -DSPARC
-endif
+CCFLAGS = -fPIC -Wall -Wextra -O3 -finline-functions -O3 -fno-strict-aliasing -fvisibility=hidden
 
 ifeq ($(arch), IA64)
    CCFLAGS += -DIA64
 endif
 
-ifeq ($(arch), AMD64)
-   CCFLAGS += -DAMD64
+ifeq ($(arch), ARM7)
+   CCFLAGS += -mcpu=cortex-a7 -mfpu=neon-vfpv4 -mneon-for-64bits
 endif
 
 OBJS = api.o buffer.o cache.o ccc.o channel.o common.o core.o epoll.o list.o md5.o packet.o queue.o window.o

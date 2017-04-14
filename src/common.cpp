@@ -101,7 +101,7 @@ void CTimer::rdtsc(uint64_t &x)
       return;
    }
 
-   #ifdef IA32
+   #if defined(IA32) || defined(IA64) || defined(AMD64)
       uint32_t lval, hval;
       //asm volatile ("push %eax; push %ebx; push %ecx; push %edx");
       //asm volatile ("xor %eax, %eax; cpuid");
@@ -109,8 +109,6 @@ void CTimer::rdtsc(uint64_t &x)
       //asm volatile ("pop %edx; pop %ecx; pop %ebx; pop %eax");
       x = hval;
       x = (x << 32) | lval;
-   #elif defined(IA64)
-      asm ("mov %0=ar.itc" : "=r"(x) :: "memory");
    #elif defined(AMD64)
       uint32_t lval, hval;
       asm ("rdtsc" : "=a" (lval), "=d" (hval));

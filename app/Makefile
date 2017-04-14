@@ -5,25 +5,16 @@ ifndef os
 endif
 
 ifndef arch
-   arch = IA32
+   arch = IA64
 endif
-
-CCFLAGS = -Wall -D$(os) -I../src -finline-functions -O3
-
-ifeq ($(arch), IA32)
-   CCFLAGS += -DIA32 #-mcpu=pentiumpro -march=pentiumpro -mmmx -msse
-endif
-
-ifeq ($(arch), POWERPC)
-   CCFLAGS += -mcpu=powerpc
-endif
-
+CCFLAGS = -fPIC -Wall -I../src -Wextra -O3 -finline-functions -O3 -fno-strict-aliasing -fvisibility=hidden
+ 
 ifeq ($(arch), IA64)
-   CCFLAGS += -DIA64
+    CCFLAGS += -DIA64
 endif
 
-ifeq ($(arch), SPARC)
-   CCFLAGS += -DSPARC
+ifeq ($(arch), ARM7)
+    CCFLAGS += -mcpu=cortex-a7 -mfpu=neon-vfpv4 -mneon-for-64bits
 endif
 
 LDFLAGS = ../src/libudt.a -lstdc++ -lpthread -lm

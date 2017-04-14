@@ -95,42 +95,78 @@ int main(int argc, char * argv[])
     return 0;
 }
 
+static int save_to_file = 0;
+
 void * recvdata(void * usocket)
 {
     UDTSOCKET recver = *(UDTSOCKET *)usocket;
     delete (UDTSOCKET *)usocket;
 
-    char * data;
-    int size = 100000;
-    data = new char[size];
+    // aquiring file name information from client
+    char file[1024];
+    int len;
 
-    while (true)
+    if (UDT::ERROR == UDT::recv(recver, (char*)&len, sizeof(int), 0))
     {
-        int rsize = 0;
-        int rs;
-
-        while (rsize < size)
-        {
-            int rcv_size;
-            int var_size = sizeof(int);
-            UDT::getsockopt(recver, 0, UDT_RCVDATA, &rcv_size, &var_size);
-
-            if (UDT::ERROR == (rs = UDT::recv(recver, data + rsize, size - rsize, 0)))
-            {
-                cout << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
-                break;
-            }
-
-            rsize += rs;
-        }
-
-        if (rsize < size)
-            break;
+        cout << "recvdata: " << UDT::getlasterror().getErrorMessage() << endl;
+        return NULL;
     }
 
-    delete [] data;
+    if (UDT::ERROR == UDT::recv(recver, file, len, 0))
+    {
+       cout << "recvdata: " << UDT::getlasterror().getErrorMessage() << endl;
+       return NULL;
+    }
+    file[len] = '\0';
+    cout << " file name len: " << len << " saving data to: " << file << endl;
 
+    // get size information
+    int64_t size;
+
+    if (UDT::ERROR == UDT::recv(recver, (char*)&size, sizeof(int64_t), 0))
+    {
+       cout << "recvdata: " << UDT::getlasterror().getErrorMessage() << endl;
+       return NULL;
+    }
+    cout << "recv size would be " << size << endl;
+    // receive the file
+    //
+    if(save_to_file){
+        fstream ofs(file, ios::out | ios::binary | ios::trunc);
+        int64_t recvsize; 
+        int64_t offset = 0;
+
+        if (UDT::ERROR == (recvsize = UDT::recvfile(recver, ofs, offset, size)))
+        {
+           cout << "recvdata: " << UDT::getlasterror().getErrorMessage() << endl;
+           return NULL;
+        }
+
+        ofs.close();
+    }
+    else {
+        //skipping saving file. just receive
+        char* buf;
+        int buf_size = 100000;
+        buf = new char[buf_size];
+        int64_t rcv_size = 0;
+        int rs;
+        cout << "skipping saving file" << endl;
+
+        while (rcv_size < size){
+            //int var_size = sizeof(int);
+            //UDT::getsockopt(recver, 0, UDT_RCVDATA, &rcv_size, &var_size);
+            if (UDT::ERROR == (rs = UDT::recv(recver, buf, buf_size, 0)))
+            {
+               cout << "recvdata:" << UDT::getlasterror().getErrorMessage() << endl;
+               break;
+            }
+            rcv_size += rs;
+        }
+        delete [] buf;
+    }
+
+    cout << "recvdata: file " << file << " receiving is completed." << endl;
     UDT::close(recver);
-
     return NULL;
 }

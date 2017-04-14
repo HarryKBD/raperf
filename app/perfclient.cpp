@@ -9,13 +9,18 @@
 
 using namespace std;
 
+#define SEND_BUF_SIZE 10000
+int64_t  SEND_FILE_SIZE = 1024*1024*1024;  //5GB
+
 void * monitor(void *);
+
+char send_buf[SEND_BUF_SIZE] = {0x03, };
 
 int main(int argc, char * argv[])
 {
-    if ((3 != argc) || (0 == atoi(argv[2])))
+    if ((4 != argc) || (0 == atoi(argv[2])))
     {
-        cout << "usage: appclient server_ip server_port" << endl;
+        cout << "usage: appclient server_ip server_port filename" << endl;
         return 0;
     }
 
@@ -76,26 +81,44 @@ int main(int argc, char * argv[])
 
     freeaddrinfo(peer);
 
-    // using CC method
-    //CUDPBlast* cchandle = NULL;
-    //int temp;
-    //UDT::getsockopt(client, 0, UDT_CC, &cchandle, &temp);
-    //if (NULL != cchandle)
-    //   cchandle->setRate(500);
 
-    int size = 100000;
-    char * data = new char[size];
+    // send name information of the requested file
+    int len = strlen(argv[3]);
+
+    if (UDT::ERROR == UDT::send(client, (char*)&len, sizeof(int), 0))
+    {
+        cout << "send: " << UDT::getlasterror().getErrorMessage() << endl;
+        return -1;
+    }
+
+    if (UDT::ERROR == UDT::send(client, argv[3], len, 0))
+    {
+        cout << "send: " << UDT::getlasterror().getErrorMessage() << endl;
+        return -1;
+    }
+
+    int64_t send_size = SEND_FILE_SIZE;
+
+    // send file size information
+    if (UDT::ERROR == UDT::send(client, (char*)&send_size, sizeof(int64_t), 0))
+    {
+       cout << "send: " << UDT::getlasterror().getErrorMessage() << endl;
+       return 0;
+    }
 
     pthread_create(new pthread_t, NULL, monitor, &client);
 
-    for (int i = 0; i < 1000000; i ++)
+
+    int64_t total_sent = 0;
+    int ss;
+
+    while(total_sent < SEND_FILE_SIZE)
     {
         int ssize = 0;
-        int ss;
 
-        while (ssize < size)
+        while (ssize < SEND_BUF_SIZE)
         {
-            if (UDT::ERROR == (ss = UDT::send(client, data + ssize, size - ssize, 0)))
+            if (UDT::ERROR == (ss = UDT::send(client, send_buf + ssize, SEND_BUF_SIZE - ssize, 0)))
             {
                 cout << "send:" << UDT::getlasterror().getErrorMessage() << endl;
                 break;
@@ -104,12 +127,14 @@ int main(int argc, char * argv[])
             ssize += ss;
         }
 
-        if (ssize < size)
+        if (ssize < SEND_BUF_SIZE)
             break;
+        total_sent += ssize;
     }
 
+    cout << "sending file done. saved file name : " << argv[3] << " total sent: " << total_sent << " expected: " << SEND_FILE_SIZE << endl;
+
     UDT::close(client);
-    delete [] data;
     return 0;
 }
 

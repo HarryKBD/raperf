@@ -38,13 +38,18 @@ endif
 
 DIR = $(shell pwd)
 
-APP = appserver appclient sendfile recvfile test
+APP = appserver appclient sendfile recvfile test perfserver perfclient
 
 all: $(APP)
 
 %.o: %.cpp
 	$(C++) $(CCFLAGS) $< -c
 
+
+perfserver: perfserver.o
+	$(C++) $^ -o $@ $(LDFLAGS)
+perfclient: perfclient.o
+	$(C++) $^ -o $@ $(LDFLAGS)
 appserver: appserver.o
 	$(C++) $^ -o $@ $(LDFLAGS)
 appclient: appclient.o

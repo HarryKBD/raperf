@@ -29,7 +29,7 @@ endif
 
 DIR = $(shell pwd)
 
-APP = appserver appclient sendfile recvfile test perfserver perfclient
+APP = appserver appclient sendfile recvfile test perfserver perfclient fluxpisvr
 
 all: $(APP)
 
@@ -48,6 +48,8 @@ appclient: appclient.o
 sendfile: sendfile.o
 	$(C++) $^ -o $@ $(LDFLAGS)
 recvfile: recvfile.o
+	$(C++) $^ -o $@ $(LDFLAGS)
+fluxpisvr: fluxpisvr.o buf.o
 	$(C++) $^ -o $@ $(LDFLAGS)
 test: test.o
 	$(C++) $^ -o $@ $(LDFLAGS)

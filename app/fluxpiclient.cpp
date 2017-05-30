@@ -20,7 +20,7 @@ int get_socket_fd(){
 int prepare_connection(char *ip, char *port)
 {
     // Automatically start up and clean up UDT module.
-    UDTUpDown _udt_;
+    UDT::startup();
 
     struct addrinfo hints, *local, *peer;
 
@@ -113,6 +113,7 @@ void clean_transmission(){
     cout << "sending file done." << endl;
     //pthread_join()
     UDT::close(socket_fd);
+    UDP::cleanup();
 }
 
 void * monitor(void * s)

@@ -9,7 +9,7 @@
 
 using namespace std;
 
-static int socket_fd = -1;
+static UDTSOCKET socket_fd = -1;
 
 void * monitor(void *);
 
@@ -63,29 +63,31 @@ int prepare_connection(char *ip, char *port)
 
     if (0 != getaddrinfo(ip, port, &hints, &peer))
     {
-        cout << "incorrect server/peer address. " << argv[1] << ":" << argv[2] << endl;
+        cout << "incorrect server/peer address. " << ip << ":" << port << endl;
         return 0;
     }
 
     // connect to the server, implict bind
     if (UDT::ERROR == UDT::connect(client, peer->ai_addr, peer->ai_addrlen))
     {
-        cout << "connect: " << UDT::getlasterror().getErrorMessage() << endl;
+        cout << "connect: " << ip << ":" << port << " " << UDT::getlasterror().getErrorMessage() << endl;
         return 0;
     }
 
     freeaddrinfo(peer);
 
 
-    pthread_create(new pthread_t, NULL, monitor, &client);
+   // pthread_create(new pthread_t, NULL, monitor, &client);
 
     socket_fd = client;
+    cout << "client fd: " << client << endl;
     return client;
 }
 
 int send_to_server(char *buf, int len)
 {
     int total_sent = 0;
+    int sent = 0;
 
 
     if(socket_fd == -1){
@@ -93,16 +95,18 @@ int send_to_server(char *buf, int len)
         return 0;
     }
 
+    cout << "socket in send : " << socket_fd << endl;
+
     while(total_sent < len)
     {
-        int ssize = 0;
-        if (UDT::ERROR == (ss = UDT::send(socket_fd, buf + total_sent, len - total_sent, 0)))
+        sent = 0;
+        if (UDT::ERROR == (sent = UDT::send(socket_fd, buf + total_sent, len - total_sent, 0)))
         {
             cout << "send:" << UDT::getlasterror().getErrorMessage() << endl;
             break;
         }
 
-        total_sent += ss;
+        total_sent += sent;
     }
 
     return total_sent;

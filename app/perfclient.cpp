@@ -6,10 +6,12 @@
 #include <udt.h>
 #include "cc.h"
 #include "test_util.h"
+#include <sys/time.h>
 
 using namespace std;
 
-#define SEND_BUF_SIZE 10000
+//#define SEND_BUF_SIZE 50000 
+#define SEND_BUF_SIZE 8000 
 int64_t  SEND_FILE_SIZE = 1024*1024*1024;  //5GB
 
 void * monitor(void *);
@@ -47,7 +49,7 @@ int main(int argc, char * argv[])
     // UDT Options
     //UDT::setsockopt(client, 0, UDT_CC, new CCCFactory<CUDPBlast>, sizeof(CCCFactory<CUDPBlast>));
     //UDT::setsockopt(client, 0, UDT_MSS, new int(9000), sizeof(int));
-    //UDT::setsockopt(client, 0, UDT_SNDBUF, new int(10000000), sizeof(int));
+    UDT::setsockopt(client, 0, UDT_SNDBUF, new int(10000000), sizeof(int));
     //UDT::setsockopt(client, 0, UDP_SNDBUF, new int(10000000), sizeof(int));
     //UDT::setsockopt(client, 0, UDT_MAXBW, new int64_t(12500000), sizeof(int));
 
@@ -97,7 +99,7 @@ int main(int argc, char * argv[])
         return -1;
     }
 
-    int64_t send_size = SEND_FILE_SIZE;
+    int64_t send_size = SEND_FILE_SIZE*20;
 
     // send file size information
     if (UDT::ERROR == UDT::send(client, (char*)&send_size, sizeof(int64_t), 0))
@@ -106,16 +108,23 @@ int main(int argc, char * argv[])
        return 0;
     }
 
+    cout << "sending file: " << argv[3] << "  size: " << send_size << endl;
+
     pthread_create(new pthread_t, NULL, monitor, &client);
 
 
     int64_t total_sent = 0;
     int ss;
+    struct timeval tv_start, tv_end;
 
-    while(total_sent < SEND_FILE_SIZE)
+    gettimeofday(&tv_start, NULL);
+
+
+    while(total_sent < send_size)
     {
         int ssize = 0;
 
+        int frag = 0;
         while (ssize < SEND_BUF_SIZE)
         {
             if (UDT::ERROR == (ss = UDT::send(client, send_buf + ssize, SEND_BUF_SIZE - ssize, 0)))
@@ -123,16 +132,23 @@ int main(int argc, char * argv[])
                 cout << "send:" << UDT::getlasterror().getErrorMessage() << endl;
                 break;
             }
+            //cout << ss << endl;
 
+            frag++;
             ssize += ss;
         }
-
+        //cout << "frag " << frag << endl;
         if (ssize < SEND_BUF_SIZE)
             break;
         total_sent += ssize;
     }
+    
+    gettimeofday(&tv_end, NULL);
 
-    cout << "sending file done. saved file name : " << argv[3] << " total sent: " << total_sent << " expected: " << SEND_FILE_SIZE << endl;
+
+    time_t taken = tv_end.tv_sec - tv_start.tv_sec;
+
+    cout << "sending file done. saved file name : " << argv[3] << " total sent: " << total_sent << "( " << total_sent/(double)taken/1000000.0 << " MB/s) expected: " << SEND_FILE_SIZE << endl;
 
     UDT::close(client);
     return 0;

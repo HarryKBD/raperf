@@ -117,7 +117,7 @@ void clean_transmission(){
     cout << "sending file done." << endl;
     //pthread_join()
     UDT::close(socket_fd);
-    UDP::cleanup();
+    UDT::cleanup();
 }
 
 void * monitor(void * s)

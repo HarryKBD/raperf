@@ -80,6 +80,7 @@ int main(int argc, char * argv[])
     int addrlen = sizeof(clientaddr);
 
     UDTSOCKET recver;
+    init_buffer();
 
     while (true)
     {
@@ -146,7 +147,7 @@ void * recvdata(void * usocket)
 void *process_buf(void *id){
 
     cout << "Starting reading frame from buffer" << endl;
-    int client_id = *(int *)id;
+    int client_id = 1;//*(int *)id;
     int data_len = 0;
     int frame_idx = 0;
 
@@ -155,8 +156,8 @@ void *process_buf(void *id){
     while(1){
         data_len = get_data_cnt();
         if(data_len < RAW_FRAME_SIZE * 2){
-            cout << "Buf is not ready. size : " << data_len << endl;
-            usleep(10000);
+            //cout << "Buf is not ready. size : " << data_len << endl;
+            usleep(10000*10);
             continue;
         }
 

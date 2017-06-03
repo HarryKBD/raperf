@@ -18,7 +18,8 @@ int main(int argc, char * argv[])
 {
     int len;
 
-    if(prepare_connection("192.168.10.100", "9000") == 0){
+    //if(prepare_connection("192.168.10.100", "9000") == 0){
+    if(prepare_connection("127.0.0.1", "9000") == 0){
         cout << " Connection error" << endl;
         return 0;
     }

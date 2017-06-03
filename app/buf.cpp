@@ -42,7 +42,7 @@ void dump_packet(unsigned char *data, int len){
 
 int save_data(char *data, int len){
     int e;
-   // dump_packet((unsigned char *)data, len);
+    dump_packet((unsigned char *)data, len);
 
     if(head < tail){
         e = tail - head;

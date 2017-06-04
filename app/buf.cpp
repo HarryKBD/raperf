@@ -7,29 +7,26 @@
 #include <unistd.h>
 
 
-#define BUFFER_SIZE  5*1024*1024*100 //1024 frames
+#include "buf.h"
 
-static char *buf;
-static int head = 0;
-static int tail = 0;
 
-char *init_buffer(){
-    buf = (char *)malloc(BUFFER_SIZE);
-    return buf;
+static FrameBuf *fbuf;
+
+FrameBuf *init_buffer(){
+    fbuf = (FrameBuf *)malloc(sizeof (FrameBuf));
+    fbuf->head = 0;
+    fbuf->tail = 0;
+    fbuf->buf = (char *)malloc(BUFFER_SIZE);
+    return fbuf;
 }
 
 
-char *get_buf_ptr(){
-    return buf;
-}
-
-int get_buf_size(){
-    return BUFFER_SIZE;
-}
-
-void dump_packet(unsigned char *data, int len){
+void dump_packet(FrameBuf *fbuf, unsigned char *data, int len){
     
     int i;
+    int head = fbuf->head;
+    int tail = fbuf->tail;
+
     printf("---------------------------- HEAD %d   TAIL %d ---------------------------\n", head, tail);
     for(i=0; i < len; i++){
         printf("%02X ", data[i]);
@@ -40,74 +37,78 @@ void dump_packet(unsigned char *data, int len){
 
 }
 
-int save_data(char *data, int len){
+int save_data(FrameBuf *fbuf, char *data, int len){
     int e;
-    dump_packet((unsigned char *)data, len);
+    char *buf = fbuf->buf;
+    //dump_packet((unsigned char *)data, len);
 
-    if(head < tail){
-        e = tail - head;
+
+    if(fbuf->head < fbuf->tail){
+        e = fbuf->tail - fbuf->head;
         if(e < len){
             printf("avail space %d. less than input len %d\n", e, len);
             return -1;
         }
-        memcpy(buf+head, data, len);
-        head += len;
+        memcpy(buf+fbuf->head, data, len);
+        fbuf->head += len;
     }
     else{
-        int rleft = BUFFER_SIZE - head;
+        int rleft = BUFFER_SIZE - fbuf->head;
         if(rleft >= len){
-            memcpy(buf+head, data, len);
-            head += len;
+            memcpy(buf+fbuf->head, data, len);
+            fbuf->head += len;
         }
         else{
-            e = rleft + tail;
+            e = rleft + fbuf->tail;
             if(e < len){
                 printf("avail space %d. less than input len %d\n", e, len);
                 return -1;
             }
-            memcpy(buf+tail, data, rleft);
+            memcpy(buf+fbuf->tail, data, rleft);
             memcpy(buf, data+rleft, len-rleft);
-            head = len - rleft;
+            fbuf->head = len - rleft;
         }
     }
     return len;
 }
 
-int get_data(char *p, int len){
+int get_data(FrameBuf *fbuf, char *p, int len){
     int c;
-    if(head == tail) return 0;
+    char *buf = fbuf->buf;
 
-    if(head > tail){
-        c = head - tail;
+    if(fbuf->head == fbuf->tail) return 0;
+
+    if(fbuf->head > fbuf->tail){
+        c = fbuf->head - fbuf->tail;
         if (c > len){
-            memcpy(p, buf+tail, len);
-            tail += len;
+            memcpy(p, buf+fbuf->tail, len);
+            fbuf->tail += len;
             return len;
         }else{
-            memcpy(p, buf+tail, c);
-            tail += c;
+            memcpy(p, buf+fbuf->tail, c);
+            fbuf->tail += c;
             return c;
         }
     }
     else{
-        int rcnt = BUFFER_SIZE - tail;
+        int rcnt = BUFFER_SIZE - fbuf->tail;
         if(rcnt > len){
             //just read
-            memcpy(p, buf+tail, len);
-            tail += len;
+            memcpy(p, buf+fbuf->tail, len);
+            fbuf->tail += len;
             return len;
         }else{
             int left;
-            memcpy(p, buf+tail, rcnt);
+            memcpy(p, buf+fbuf->tail, rcnt);
             left = len - rcnt;
-            if(head >= left){
+            if(fbuf->head >= left){
                 memcpy(p+rcnt, buf, left);
-                tail = left;
+                fbuf->tail = left;
                 return len;
             }else{
-                memcpy(p+rcnt, buf, head);
-                tail = head;
-                return rcnt+head;
+                memcpy(p+rcnt, buf, fbuf->head);
+                fbuf->tail = fbuf->head;
+                return rcnt+fbuf->head;
             }
         }
     }
@@ -118,9 +119,8 @@ int MAGIC_LEN  = sizeof(FRAME_MAGIC);
 char temp_frame[8];
 
 
-char *get_a_frame(char *frame, int len){
-
-    int read_len = get_data(temp_frame, 8);
+char *get_a_frame(FrameBuf *fbuf, char *frame, int len){
+    int read_len = get_data(fbuf, temp_frame, 8);
 
     if(read_len != 8){
         printf("Critical Error.... \n");
@@ -132,7 +132,7 @@ char *get_a_frame(char *frame, int len){
         return NULL;
     }
 
-    read_len = get_data(frame, len);
+    read_len = get_data(fbuf, frame, len);
 
     if(read_len != len){
         printf("Critical Error3\n");
@@ -142,17 +142,18 @@ char *get_a_frame(char *frame, int len){
     return frame;
 }
 
-int get_data_cnt(){
+int get_data_cnt(FrameBuf *fbuf){
     int c;
-    if(head == tail) return 0;
 
-    if(head > tail){
-        c = head - tail;
+    if(fbuf->head == fbuf->tail) return 0;
+
+    if(fbuf->head > fbuf->tail){
+        c = fbuf->head - fbuf->tail;
         return c;
     }
     else{
-        int rcnt = BUFFER_SIZE - tail;
-        return rcnt+head;
+        int rcnt = BUFFER_SIZE - fbuf->tail;
+        return rcnt+fbuf->head;
     }
 }
 

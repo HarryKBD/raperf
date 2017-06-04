@@ -17,7 +17,8 @@ void * recvdata(void *);
 void *process_buf(void *id);
 
 
-#define RAW_FRAME_SIZE 5000000
+//#define RAW_FRAME_SIZE 5000000
+#define RAW_FRAME_SIZE 1024*1024
 char RAW_BUF[RAW_FRAME_SIZE];
 
 int main(int argc, char * argv[])
@@ -80,8 +81,6 @@ int main(int argc, char * argv[])
     int addrlen = sizeof(clientaddr);
 
     UDTSOCKET recver;
-    init_buffer();
-
     while (true)
     {
         if (UDT::INVALID_SOCK == (recver = UDT::accept(serv, (sockaddr *)&clientaddr, &addrlen)))
@@ -95,11 +94,15 @@ int main(int argc, char * argv[])
         getnameinfo((sockaddr *)&clientaddr, addrlen, clienthost, sizeof(clienthost), clientservice, sizeof(clientservice), NI_NUMERICHOST | NI_NUMERICSERV);
         cout << "new connection: " << clienthost << ":" << clientservice << endl;
 
+        FrameBuf *pbuf;
+        pbuf = init_buffer();
+        pbuf->sd = UDPSOCKET(recver);
+
         pthread_t rcvthread;
         pthread_t readthread;
 
-        pthread_create(&readthread, NULL, process_buf, NULL);
-        pthread_create(&rcvthread, NULL, recvdata, new UDTSOCKET(recver));
+        pthread_create(&readthread, NULL, process_buf, pbuf);
+        pthread_create(&rcvthread, NULL, recvdata, pbuf);
         pthread_detach(rcvthread);
         pthread_detach(readthread);
     }
@@ -109,10 +112,11 @@ int main(int argc, char * argv[])
     return 0;
 }
 
-void * recvdata(void * usocket)
+void * recvdata(void *p)
 {
-    UDTSOCKET recver = *(UDTSOCKET *)usocket;
-    delete (UDTSOCKET *)usocket;
+
+    FrameBuf *pbuf = (FrameBuf *)p;
+    UDTSOCKET recver = pbuf->sd;
 
     char* buf;
     int buf_size = 100000;
@@ -129,7 +133,7 @@ void * recvdata(void * usocket)
            cout << "recvdata:" << UDT::getlasterror().getErrorMessage() << endl;
            break;
         }
-        saved_len = save_data(buf, rs);
+        saved_len = save_data(pbuf, buf, rs);
         if(saved_len != rs){
             printf("Buffer might be full already..\n");
             usleep(5000);
@@ -144,27 +148,29 @@ void * recvdata(void * usocket)
 }
 
 
-void *process_buf(void *id){
+void *process_buf(void *p){
 
     cout << "Starting reading frame from buffer" << endl;
-    int client_id = 1;//*(int *)id;
+    FrameBuf *pbuf = (FrameBuf *)p;
     int data_len = 0;
     int frame_idx = 0;
 
-    cout << " client ID is : " << client_id << endl;
+    cout << " client ID is : " << pbuf->sd << endl;
 
     while(1){
-        data_len = get_data_cnt();
+        data_len = get_data_cnt(pbuf);
         if(data_len < RAW_FRAME_SIZE * 2){
-            //cout << "Buf is not ready. size : " << data_len << endl;
-            usleep(10000*10);
+            cout << "Buf is not ready. size : " << data_len << endl;
+            usleep(10000*100);
             continue;
         }
+        cout << "Buff size is good: " << data_len << endl;
 
-        if(get_a_frame(RAW_BUF, RAW_FRAME_SIZE) != NULL){
+        if(get_a_frame(pbuf, RAW_BUF, RAW_FRAME_SIZE) != NULL){
             cout << "get frame: " << frame_idx++;
             //do something with this frame
         }
+        cout << "continue.." << endl;
     }
 
     //read buf and clean read parts

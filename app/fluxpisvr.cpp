@@ -18,7 +18,7 @@ void *process_buf(void *id);
 
 
 //#define RAW_FRAME_SIZE 5000000
-#define RAW_FRAME_SIZE 1024*1024
+#define RAW_FRAME_SIZE 3686400
 char RAW_BUF[RAW_FRAME_SIZE];
 
 int main(int argc, char * argv[])
@@ -160,17 +160,17 @@ void *process_buf(void *p){
     while(1){
         data_len = get_data_cnt(pbuf);
         if(data_len < RAW_FRAME_SIZE * 2){
-            cout << "Buf is not ready. size : " << data_len << endl;
-            usleep(10000*100);
+            //cout << "Buf is not ready. size : " << data_len << endl;
+            //usleep(10000*100);
             continue;
         }
-        cout << "Buff size is good: " << data_len << endl;
+        //cout << "Buff size is good: " << data_len << endl;
 
         if(get_a_frame(pbuf, RAW_BUF, RAW_FRAME_SIZE) != NULL){
-            cout << "get frame: " << frame_idx++;
+            cout << "get frame: " << frame_idx++ << endl;
             //do something with this frame
         }
-        cout << "continue.." << endl;
+        //cout << "continue.." << endl;
     }
 
     //read buf and clean read parts

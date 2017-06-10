@@ -127,8 +127,12 @@ char *get_a_frame(FrameBuf *fbuf, char *frame, int len){
         return NULL;
     }
 
-    if(!memcmp((void *)FRAME_MAGIC, temp_frame, MAGIC_LEN)){
+    //dump_packet(fbuf, (unsigned char *)temp_frame, 8);
+
+    if(memcmp((void *)FRAME_MAGIC, temp_frame, MAGIC_LEN)){
         printf("Critical Error2.... \n");
+    dump_packet(fbuf, (unsigned char *)temp_frame, 8);
+        getchar();
         return NULL;
     }
 
@@ -138,6 +142,8 @@ char *get_a_frame(FrameBuf *fbuf, char *frame, int len){
         printf("Critical Error3\n");
         return NULL;
     }
+
+    //printf("get_a_frame frame len %d\n", read_len);
 
     return frame;
 }

@@ -7,7 +7,8 @@
 #include "cc.h"
 #include "test_util.h"
 #include "buf.h"
-
+#include "debayer.h"
+#include "cairo_display.h"
 
 #define MAX_CLIENT_SIZE 6
 using namespace std;
@@ -17,15 +18,23 @@ void * recvdata(void *);
 void *process_buf(void *id);
 
 
-//#define RAW_FRAME_SIZE 5000000
-#define RAW_FRAME_SIZE 3686400
+//#define RAW_FRAME_SIZE 3686400
+#define RAW_FRAME_SIZE 4608000
 char RAW_BUF[RAW_FRAME_SIZE];
+
+
+char rgb24buf[1920 * 1920 * 3];
 
 int main(int argc, char * argv[])
 {
     if ((1 != argc) && ((2 != argc) || (0 == atoi(argv[1]))))
     {
         cout << "usage: appserver [server_port]" << endl;
+        return 0;
+    }
+
+    if(init_display(argc, argv) < 0){
+        cout << "display init fail." << endl;
         return 0;
     }
 
@@ -109,6 +118,8 @@ int main(int argc, char * argv[])
 
     UDT::close(serv);
 
+    cleanup_display();
+
     return 0;
 }
 
@@ -167,8 +178,17 @@ void *process_buf(void *p){
         //cout << "Buff size is good: " << data_len << endl;
 
         if(get_a_frame(pbuf, RAW_BUF, RAW_FRAME_SIZE) != NULL){
+
             cout << "get frame: " << frame_idx++ << endl;
-            //do something with this frame
+            //char tmps[30];
+            //sprintf(tmps, "raw%d.raw", frame_idx);
+            //save_buf_to_file(RAW_BUF, RAW_FRAME_SIZE, tmps);
+            convert_raw_to_rgb24(RAW_BUF, rgb24buf);
+            //sprintf(tmps, "raw%d.ppm", frame_idx);
+            //save_buf_as_ppm(rgb24buf, 1920 * 1920 * 3, tmps);
+            //printf("convert done\n");
+            //draw
+            display_image(rgb24buf, 1920 * 1920 * 3);
         }
         //cout << "continue.." << endl;
     }

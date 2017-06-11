@@ -21,6 +21,48 @@ FrameBuf *init_buffer(){
 }
 
 
+void save_buf_to_file(char *buf, int len, char *fname){
+
+    FILE *fp = fopen(fname, "wb");
+    int wlen;
+    if(!fp){
+        printf("save buf file open error\n");
+        return;
+    }
+
+    wlen = fwrite(buf, len, 1, fp);
+
+    if(wlen != len){
+        printf("save file len error written: %d expected: %d\n", wlen, len);
+    }
+
+    printf("saveing buf to file %s done\n", fname);
+    fclose(fp);
+}
+
+void save_buf_as_ppm(char *buf, int len, char *fname){
+
+    FILE *fp = fopen(fname, "wb");
+    int wlen;
+    if(!fp){
+        printf("save buf file open error\n");
+        return;
+    }
+
+    fprintf(fp, "P6\n%d %d\n255\n", 1920, 1920);
+
+    wlen = fwrite(buf, len, 1, fp);
+
+    if(wlen != len){
+        printf("save file len error written: %d expected: %d\n", wlen, len);
+    }
+
+    printf("saveing buf to file %s done\n", fname);
+    fclose(fp);
+}
+
+
+
 void dump_packet(FrameBuf *fbuf, unsigned char *data, int len){
     
     int i;
@@ -64,9 +106,11 @@ int save_data(FrameBuf *fbuf, char *data, int len){
                 printf("avail space %d. less than input len %d\n", e, len);
                 return -1;
             }
-            memcpy(buf+fbuf->tail, data, rleft);
+            //printf("copy two times tail %d, head %d, rleft %d\n", fbuf->tail, fbuf->head, rleft);
+            memcpy(buf+fbuf->head, data, rleft);
             memcpy(buf, data+rleft, len-rleft);
             fbuf->head = len - rleft;
+            //printf("New Head %d\n", fbuf->head);
         }
     }
     return len;
@@ -93,7 +137,6 @@ int get_data(FrameBuf *fbuf, char *p, int len){
     else{
         int rcnt = BUFFER_SIZE - fbuf->tail;
         if(rcnt > len){
-            //just read
             memcpy(p, buf+fbuf->tail, len);
             fbuf->tail += len;
             return len;
@@ -106,6 +149,7 @@ int get_data(FrameBuf *fbuf, char *p, int len){
                 fbuf->tail = left;
                 return len;
             }else{
+                printf("something\n");
                 memcpy(p+rcnt, buf, fbuf->head);
                 fbuf->tail = fbuf->head;
                 return rcnt+fbuf->head;

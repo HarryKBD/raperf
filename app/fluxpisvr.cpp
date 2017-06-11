@@ -2,6 +2,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <netdb.h>
+#include <time.h>
+#include <sys/time.h>
 #include <iostream>
 #include <udt.h>
 #include "cc.h"
@@ -19,11 +21,8 @@ void *process_buf(void *id);
 
 
 //#define RAW_FRAME_SIZE 3686400
-#define RAW_FRAME_SIZE 4608000
-char RAW_BUF[RAW_FRAME_SIZE];
 
 
-char rgb24buf[1920 * 1920 * 3];
 
 int main(int argc, char * argv[])
 {
@@ -32,12 +31,6 @@ int main(int argc, char * argv[])
         cout << "usage: appserver [server_port]" << endl;
         return 0;
     }
-
-    if(init_display(argc, argv) < 0){
-        cout << "display init fail." << endl;
-        return 0;
-    }
-
     // Automatically start up and clean up UDT module.
     UDTUpDown _udt_;
 
@@ -104,7 +97,15 @@ int main(int argc, char * argv[])
         cout << "new connection: " << clienthost << ":" << clientservice << endl;
 
         FrameBuf *pbuf;
-        pbuf = init_buffer();
+        GTK_DATA *pDisplay = init_display();
+
+        if(!pDisplay){
+            cout << "display init fail." << endl;
+            continue;
+        }
+
+        pbuf = init_buffer((void *)pDisplay);
+
         pbuf->sd = UDPSOCKET(recver);
 
         pthread_t rcvthread;
@@ -118,12 +119,10 @@ int main(int argc, char * argv[])
 
     UDT::close(serv);
 
-    cleanup_display();
-
     return 0;
 }
 
-void * recvdata(void *p)
+void *recvdata(void *p)
 {
 
     FrameBuf *pbuf = (FrameBuf *)p;
@@ -151,6 +150,7 @@ void * recvdata(void *p)
             printf("Starting read again\n");
         }
     }
+    pbuf->rcv_running = 0;
     delete [] buf;
 
     cout << "recvdata: receiving is completed." << endl;
@@ -165,10 +165,11 @@ void *process_buf(void *p){
     FrameBuf *pbuf = (FrameBuf *)p;
     int data_len = 0;
     int frame_idx = 0;
-
+    GTK_DATA *pDisplay = (GTK_DATA *)pbuf->puser;
     cout << " client ID is : " << pbuf->sd << endl;
+    struct timeval tv_start, tv_end;
 
-    while(1){
+    while(pbuf->rcv_running){
         data_len = get_data_cnt(pbuf);
         if(data_len < RAW_FRAME_SIZE * 2){
             //cout << "Buf is not ready. size : " << data_len << endl;
@@ -177,24 +178,34 @@ void *process_buf(void *p){
         }
         //cout << "Buff size is good: " << data_len << endl;
 
-        if(get_a_frame(pbuf, RAW_BUF, RAW_FRAME_SIZE) != NULL){
+        gettimeofday(&tv_start, NULL);
+        if(get_a_frame(pbuf, pbuf->raw_buf, RAW_FRAME_SIZE) != NULL){
 
             cout << "get frame: " << frame_idx++ << endl;
+            convert_raw_to_rgb24(pbuf->raw_buf, pbuf->rgb24buf);
+            if(pDisplay){
+            	display_image(pDisplay, pbuf->rgb24buf, RGB24_BUFFER_SIZE);
+            }
+            gettimeofday(&tv_end, NULL);
+
+            printf("timediff %d  %d\n", tv_end.tv_sec - tv_start.tv_sec, tv_end.tv_usec - tv_start.tv_usec);
+
             //char tmps[30];
             //sprintf(tmps, "raw%d.raw", frame_idx);
             //save_buf_to_file(RAW_BUF, RAW_FRAME_SIZE, tmps);
-            convert_raw_to_rgb24(RAW_BUF, rgb24buf);
             //sprintf(tmps, "raw%d.ppm", frame_idx);
             //save_buf_as_ppm(rgb24buf, 1920 * 1920 * 3, tmps);
             //printf("convert done\n");
             //draw
-            display_image(rgb24buf, 1920 * 1920 * 3);
         }
         //cout << "continue.." << endl;
     }
-
+    cout << "Processing buf is done on " << pbuf->sd << "cleaning up and closing....." << endl;
+    cleanup_display(pDisplay);
+    release_buffer(pbuf);
     //read buf and clean read parts
     //read_a_frame();
     //covert_to_jpg();
     //display_image();
+    return NULL;
 }

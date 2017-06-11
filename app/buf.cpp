@@ -5,21 +5,30 @@
 #include <sys/socket.h>
 #include <pthread.h>
 #include <unistd.h>
-
-
 #include "buf.h"
 
+char rgb24buf[1920 * 1920 * 3];
+char RAW_BUF[RAW_FRAME_SIZE];
 
-static FrameBuf *fbuf;
-
-FrameBuf *init_buffer(){
+FrameBuf *init_buffer(void *p){
+    FrameBuf *fbuf;
     fbuf = (FrameBuf *)malloc(sizeof (FrameBuf));
     fbuf->head = 0;
     fbuf->tail = 0;
-    fbuf->buf = (char *)malloc(BUFFER_SIZE);
+    fbuf->rcv_buf = (char *)malloc(RCV_BUFFER_SIZE);
+    fbuf->rgb24buf = (char *)malloc(RGB24_BUFFER_SIZE);
+    fbuf->raw_buf = (char *)malloc(RAW_FRAME_SIZE);
+    fbuf->rcv_running = 1;
+    fbuf->puser = p;
     return fbuf;
 }
 
+void release_buffer(FrameBuf *pbuf){
+    free((void *)pbuf->rcv_buf);
+    free((void *)pbuf->rgb24buf);
+    free((void *)pbuf->raw_buf);
+    free((void *)pbuf);
+}
 
 void save_buf_to_file(char *buf, int len, char *fname){
 
@@ -81,7 +90,7 @@ void dump_packet(FrameBuf *fbuf, unsigned char *data, int len){
 
 int save_data(FrameBuf *fbuf, char *data, int len){
     int e;
-    char *buf = fbuf->buf;
+    char *buf = fbuf->rcv_buf;
     //dump_packet((unsigned char *)data, len);
 
 
@@ -95,7 +104,7 @@ int save_data(FrameBuf *fbuf, char *data, int len){
         fbuf->head += len;
     }
     else{
-        int rleft = BUFFER_SIZE - fbuf->head;
+        int rleft = RCV_BUFFER_SIZE - fbuf->head;
         if(rleft >= len){
             memcpy(buf+fbuf->head, data, len);
             fbuf->head += len;
@@ -118,7 +127,7 @@ int save_data(FrameBuf *fbuf, char *data, int len){
 
 int get_data(FrameBuf *fbuf, char *p, int len){
     int c;
-    char *buf = fbuf->buf;
+    char *buf = fbuf->rcv_buf;
 
     if(fbuf->head == fbuf->tail) return 0;
 
@@ -135,7 +144,7 @@ int get_data(FrameBuf *fbuf, char *p, int len){
         }
     }
     else{
-        int rcnt = BUFFER_SIZE - fbuf->tail;
+        int rcnt = RCV_BUFFER_SIZE - fbuf->tail;
         if(rcnt > len){
             memcpy(p, buf+fbuf->tail, len);
             fbuf->tail += len;
@@ -161,7 +170,6 @@ int get_data(FrameBuf *fbuf, char *p, int len){
 char FRAME_MAGIC[] = {0x33, 0x44, 0x55, 0x44, 0x44, 0x77, 0x77, 0x27};
 int MAGIC_LEN  = sizeof(FRAME_MAGIC);
 char temp_frame[8];
-
 
 char *get_a_frame(FrameBuf *fbuf, char *frame, int len){
     int read_len = get_data(fbuf, temp_frame, 8);
@@ -202,7 +210,7 @@ int get_data_cnt(FrameBuf *fbuf){
         return c;
     }
     else{
-        int rcnt = BUFFER_SIZE - fbuf->tail;
+        int rcnt = RCV_BUFFER_SIZE - fbuf->tail;
         return rcnt+fbuf->head;
     }
 }

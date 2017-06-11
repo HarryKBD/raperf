@@ -10,38 +10,31 @@
 
 #include "cairo_display.h"
 
-static GtkWidget *g_main_window = NULL;
-static cairo_surface_t *g_image = NULL;
-static void do_drawing(cairo_t *);
-static char rgb32buf[1920 * 1920 * 4];
-static pthread_t draw_thread;
-
-
-static gboolean on_draw_event(GtkWidget *widget, cairo_t *cr, 
-    gpointer user_data)
-{      
-    do_drawing(cr);
-    return FALSE;
-}
-
-static void do_drawing(cairo_t *cr)
+static void do_drawing(GTK_DATA *p, cairo_t *cr)
 {
-    if(!g_image){
+    if(!p->g_image){
         printf("Image is not ready.\n");
         return;
     }
-    cairo_set_source_surface(cr, g_image , 10, 10);
+    cairo_set_source_surface(cr, p->g_image , 10, 10);
     cairo_paint(cr);    
 }
 
+static gboolean on_draw_event(GtkWidget *widget, cairo_t *cr,
+    gpointer user_data)
+{
+    GTK_DATA *p = (GTK_DATA *)user_data;
+    do_drawing(p, cr);
+    return FALSE;
+}
 
-static char *convert_RGB24_to_RGB32(char *p, int n, int w, int h){
-    int new_size = w * h * 4;
-    if(n != 1920 * 1920*3){
+static char *convert_RGB24_to_RGB32(char *p, int n, int w, int h, char *rgb32buf){
+    int rgb24_size = w * h * 3;
+    if(n != rgb24_size){
         printf("input is not correct %d. expected %d\n", n, 1920*1920*3);
         return NULL;
     }
-    memset(rgb32buf, 0x00, sizeof(rgb32buf));
+    memset(rgb32buf, 0x00, 1920 * 1920 * 4);
     char *dst = rgb32buf;
     char *src = p;
     while(1){
@@ -55,48 +48,39 @@ static char *convert_RGB24_to_RGB32(char *p, int n, int w, int h){
     return rgb32buf;
 }
 
-static cairo_surface_t *cairo_image_surface_create_from_rgb24(char *rgb24buf, int len){
-    char *rgb32_buf;
+static cairo_surface_t *cairo_image_surface_create_from_rgb24(char *rgb24buf, int len, char *rgb32buf){
     int stride;
-    int w, h;
-    static int idx_tmp = 0;
-    char tmp_file_name[10];
-    FILE *tmp;
-
-    w = 1920;
-    h = 1920;
 
     //just for information
-    stride = cairo_format_stride_for_width (CAIRO_FORMAT_RGB24, w);
+    stride = cairo_format_stride_for_width (CAIRO_FORMAT_RGB24, 1920);
 
-    convert_RGB24_to_RGB32(rgb24buf, len, w, h);
-    return cairo_image_surface_create_for_data ((unsigned char *)rgb32buf, CAIRO_FORMAT_RGB24, w, h, stride);
+    convert_RGB24_to_RGB32(rgb24buf, len, 1920, 1920, rgb32buf);
+    return cairo_image_surface_create_for_data ((unsigned char *)rgb32buf, CAIRO_FORMAT_RGB24, 1920, 1920, stride);
 }
 
-void *draw_thread_main(void *){
+void *draw_thread_main(void *p){
   GtkWidget *darea;
-  int stride;
+
+  GTK_DATA *pd = (GTK_DATA *)p;
 
   printf("Creating draw thread...\n");
 
-  g_main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  pd->g_main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
   darea = gtk_drawing_area_new();
-  gtk_container_add(GTK_CONTAINER (g_main_window), darea);
+  gtk_container_add(GTK_CONTAINER (pd->g_main_window), darea);
 
   g_signal_connect(G_OBJECT(darea), "draw", 
-      G_CALLBACK(on_draw_event), NULL); 
-  g_signal_connect(g_main_window, "destroy",
-      G_CALLBACK (gtk_main_quit), NULL);
+      G_CALLBACK(on_draw_event), p); 
+  g_signal_connect(pd->g_main_window, "destroy",
+      G_CALLBACK (gtk_main_quit), p);
 
-  gtk_window_set_position(GTK_WINDOW(g_main_window), GTK_WIN_POS_CENTER);
-  gtk_window_set_default_size(GTK_WINDOW(g_main_window), 1024, 768); 
-  gtk_window_set_title(GTK_WINDOW(g_main_window), "Image");
+  gtk_window_set_position(GTK_WINDOW(pd->g_main_window), GTK_WIN_POS_CENTER);
+  gtk_window_set_default_size(GTK_WINDOW(pd->g_main_window), 1024, 768); 
+  gtk_window_set_title(GTK_WINDOW(pd->g_main_window), "Image");
 
-  stride = cairo_format_stride_for_width (CAIRO_FORMAT_RGB24, 1920);
-  g_image = cairo_image_surface_create_for_data ((unsigned char *)rgb32buf, CAIRO_FORMAT_RGB24, 1920, 1920, stride);
-  gtk_widget_show_all(g_main_window);
-  gtk_widget_queue_draw(g_main_window);
+  gtk_widget_show_all(pd->g_main_window);
+  gtk_widget_queue_draw(pd->g_main_window);
 
   gtk_main();
 
@@ -112,29 +96,38 @@ void *draw_thread_main(void *){
   return NULL;
 }
 
-void cleanup_display(){
-  cairo_surface_destroy(g_image);
+void cleanup_display(GTK_DATA *p){
+	if(!p){
+		return;
+	}
+    cairo_surface_destroy(p->g_image);
+    free(p->rgb32buf);
+    pthread_detach(p->draw_thread);
+    free(p);
 }
 
-int display_image(char *rgb24buf, int len){
-    int stri;
+int display_image(GTK_DATA *p, char *rgb24buf, int len){
     if(len != 1920 * 1920 * 3){
         printf("display image buf len is not correct %d\n", len);
         return -1;
     }
 
-    g_image = cairo_image_surface_create_from_rgb24(rgb24buf, len);
+    p->g_image = cairo_image_surface_create_from_rgb24(rgb24buf, len, p->rgb32buf);
 
-    gtk_widget_queue_draw(g_main_window);
+    gtk_widget_queue_draw(p->g_main_window);
 
     return 1;
 }
 
-int init_display(int argc, char *argv[])
+GTK_DATA *init_display()
 {
-   gtk_init(&argc, &argv);
-   pthread_create(&draw_thread, NULL, draw_thread_main, NULL);
-   return 1;
+
+    GTK_DATA *p = (GTK_DATA *)malloc(sizeof(GTK_DATA));
+    p->rgb32buf = (char *)malloc(1920 * 1920 * 4);
+    gtk_init(NULL, NULL);
+    pthread_create(&p->draw_thread, NULL, draw_thread_main, (void *)p);
+
+    return p;
 }
 
 

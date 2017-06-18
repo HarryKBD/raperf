@@ -52,7 +52,7 @@ sendfile: sendfile.o
 	$(C++) $^ -o $@ $(LDFLAGS)
 recvfile: recvfile.o
 	$(C++) $^ -o $@ $(LDFLAGS)
-fluxpisvr: fluxpisvr.o buf.o debayer.o cairo_display.o
+fluxpisvr: fluxpisvr.o buf.o debayer.o cairo_display.o stopwatch.o
 	$(C++) $^ -o $@ $(LDFLAGS)
 raw: raw.o fluxpiclient.o
 	$(C++) $^ -o $@ $(LDFLAGS)

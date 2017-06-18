@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <math.h>
 #include <string.h>
+#include <X11/Xlib.h>
 
 #include "cairo_display.h"
 
@@ -16,7 +17,7 @@ static void do_drawing(GTK_DATA *p, cairo_t *cr)
         printf("Image is not ready.\n");
         return;
     }
-    cairo_set_source_surface(cr, p->g_image , 10, 10);
+    cairo_set_source_surface(cr, p->g_image , 0, 0);
     cairo_paint(cr);    
 }
 
@@ -76,6 +77,7 @@ void *draw_thread_main(void *p){
       G_CALLBACK (gtk_main_quit), p);
 
   gtk_window_set_position(GTK_WINDOW(pd->g_main_window), GTK_WIN_POS_CENTER);
+  //gtk_window_set_default_size(GTK_WINDOW(pd->g_main_window), 640, 480); 
   gtk_window_set_default_size(GTK_WINDOW(pd->g_main_window), 1024, 768); 
   gtk_window_set_title(GTK_WINDOW(pd->g_main_window), "Image");
 
@@ -119,12 +121,16 @@ int display_image(GTK_DATA *p, char *rgb24buf, int len){
     return 1;
 }
 
+void init_gtk(){
+    XInitThreads();
+    gtk_init(NULL, NULL);
+}
+
 GTK_DATA *init_display()
 {
-
     GTK_DATA *p = (GTK_DATA *)malloc(sizeof(GTK_DATA));
+    memset(p, 0, sizeof(GTK_DATA));
     p->rgb32buf = (char *)malloc(1920 * 1920 * 4);
-    gtk_init(NULL, NULL);
     pthread_create(&p->draw_thread, NULL, draw_thread_main, (void *)p);
 
     return p;

@@ -12,6 +12,7 @@ typedef struct tagGTK_DATA{
     char *rgb32buf;
 }GTK_DATA;
 
+void init_gtk();
 GTK_DATA *init_display();
 void cleanup_display(GTK_DATA *p);
 int display_image(GTK_DATA *p, char *rgb24buf, int len);

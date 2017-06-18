@@ -8,15 +8,66 @@
 
 static void adjust_raw_format(char *raw);
 static void convertRGGB(unsigned short * data, unsigned char * rgb);
+static void applyWeight(unsigned char * data);
 
 static unsigned short adjust_buf[1920 * 1920];
 
+
+long int totalR = 0;
+long int totalG = 0;
+long int totalB = 0;
+
+
 int convert_raw_to_rgb24(char *raw, char *rgb24buf){
+
+    totalR = totalG = totalB = 0;
 
     adjust_raw_format(raw);
     convertRGGB(adjust_buf, (unsigned char *)rgb24buf);
+//    applyWeight((unsigned char *)rgb24buf);
+
     return 1;
 }
+
+int clamp(int color){
+    if(color < 0) return 0;
+    if(color > 255) return 255;
+    return color;
+}
+
+
+static void applyWeight(unsigned char * data)
+{
+    float weightGreen = 0;
+    float weightRed = 0;
+    float weightBlue = 0;
+    int height = 1920;
+    int width = 1920;
+    long int totalHighest = 0;
+    totalHighest = totalG;
+    if(totalG > totalHighest)
+        totalHighest = totalG;
+    if(totalB > totalHighest)
+        totalHighest = totalB;
+    
+    weightGreen = (float)totalHighest/(float)totalG;
+    weightRed = (float)totalHighest/(float)totalR;
+    weightBlue = (float)totalHighest/(float)totalB;
+    
+    printf("Weight R %f G %f B %f\n", weightRed, weightGreen, weightBlue);
+    int index = 0;
+    for(index = 0 ; (index+2) < (height*width*3) ; index +=3)
+    {
+        data[index] = clamp(data[index]*weightRed);
+        data[index+1] = clamp(data[index+1]*weightGreen);
+        data[index+2] = clamp(data[index+2]*weightBlue);
+    }
+}
+
+
+
+
+
 
 static void adjust_raw_format(char *raw){
     int row, col;
@@ -333,6 +384,10 @@ static void convertRGGB(unsigned short * data, unsigned char * rgb)
                 printf("Unknown type %d %d\n", y, x);
             }
 
+            totalR += color[0];
+            totalG += color[1];
+            totalB += color[2];
+
             rgb[index] = color[0];
             index++;
             rgb[index] = color[1];
@@ -342,5 +397,4 @@ static void convertRGGB(unsigned short * data, unsigned char * rgb)
         }
     }
 }
-
 

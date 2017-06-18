@@ -11,6 +11,7 @@
 #include "buf.h"
 #include "debayer.h"
 #include "cairo_display.h"
+#include "stopwatch.h"
 
 #define MAX_CLIENT_SIZE 6
 using namespace std;
@@ -31,6 +32,10 @@ int main(int argc, char * argv[])
         cout << "usage: appserver [server_port]" << endl;
         return 0;
     }
+
+
+    init_gtk();
+
     // Automatically start up and clean up UDT module.
     UDTUpDown _udt_;
 
@@ -99,14 +104,25 @@ int main(int argc, char * argv[])
         FrameBuf *pbuf;
         GTK_DATA *pDisplay = init_display();
 
+        /*
         if(!pDisplay){
             cout << "display init fail." << endl;
             continue;
         }
+        */
 
+        static int thread_idx = 0;
+
+        //pDisplay = NULL;
         pbuf = init_buffer((void *)pDisplay);
 
+        pbuf->id = ++thread_idx;
         pbuf->sd = UDPSOCKET(recver);
+
+        //pbuf->cond = PTHREAD_COND_INITIALIZER;
+        //pbuf->mutex = PTHREAD_MUTEX_INITIALIZER;
+        pthread_mutex_init(&pbuf->mutex, NULL);
+        pthread_cond_init(&pbuf->cond, NULL);
 
         pthread_t rcvthread;
         pthread_t readthread;
@@ -138,16 +154,41 @@ void *recvdata(void *p)
     while (1){
         //int var_size = sizeof(int);
         //UDT::getsockopt(recver, 0, UDT_RCVDATA, &rcv_size, &var_size);
-        if (UDT::ERROR == (rs = UDT::recv(recver, buf, buf_size, 0)))
+        char *save_buf;
+        int save_buf_len;
+
+        save_buf = get_save_buf_ptr(pbuf, 100000, &save_buf_len);
+        if(save_buf == NULL){
+            printf("buf null error\n");
+            usleep(1000000);
+            continue;
+        }
+        else{
+         //   printf("save buf len %d\n", save_buf_len);
+        }
+
+        if (UDT::ERROR == (rs = UDT::recv(recver, save_buf, save_buf_len, 0)))
         {
            cout << "recvdata:" << UDT::getlasterror().getErrorMessage() << endl;
            break;
         }
-        saved_len = save_data(pbuf, buf, rs);
+        if(rs != save_buf_len){
+         //   printf("adjust buf to %d\n", save_buf_len - rs);
+            adjust_buf_header(pbuf, save_buf_len - rs);
+        }
+        //start();
+        //saved_len = save_data(pbuf, buf, rs);
+        //stop("save");
+        /*
         if(saved_len != rs){
             printf("Buffer might be full already..\n");
             usleep(5000);
             printf("Starting read again\n");
+        }
+        */
+
+        if(get_data_cnt(pbuf) > RAW_FRAME_SIZE * 2){
+            pthread_cond_signal(&pbuf->cond);
         }
     }
     pbuf->rcv_running = 0;
@@ -167,28 +208,34 @@ void *process_buf(void *p){
     int frame_idx = 0;
     GTK_DATA *pDisplay = (GTK_DATA *)pbuf->puser;
     cout << " client ID is : " << pbuf->sd << endl;
-    struct timeval tv_start, tv_end;
 
     while(pbuf->rcv_running){
+        
+        pthread_mutex_lock(&pbuf->mutex);
+        pthread_cond_wait(&pbuf->cond, &pbuf->mutex);
+        pthread_mutex_unlock(&pbuf->mutex);
         data_len = get_data_cnt(pbuf);
         if(data_len < RAW_FRAME_SIZE * 2){
-            //cout << "Buf is not ready. size : " << data_len << endl;
+            cout << "Buf is not ready. size : " << data_len << endl;
             //usleep(10000*100);
             continue;
         }
         //cout << "Buff size is good: " << data_len << endl;
 
-        gettimeofday(&tv_start, NULL);
-        if(get_a_frame(pbuf, pbuf->raw_buf, RAW_FRAME_SIZE) != NULL){
-
-            cout << "get frame: " << frame_idx++ << endl;
-            convert_raw_to_rgb24(pbuf->raw_buf, pbuf->rgb24buf);
+        start();
+        char *frame_ptr;
+        if((frame_ptr = get_a_frame(pbuf, pbuf->raw_buf, RAW_FRAME_SIZE)) != NULL){
+            //stop("frame");
+            cout << "ID " << pbuf->id << " : get frame: " << frame_idx++ << endl;
+            //convert_raw_to_rgb24(pbuf->raw_buf, pbuf->rgb24buf);
+            convert_raw_to_rgb24(frame_ptr, pbuf->rgb24buf);
+            //stop("convert");
             if(pDisplay){
             	display_image(pDisplay, pbuf->rgb24buf, RGB24_BUFFER_SIZE);
+             //   stop("display");
             }
-            gettimeofday(&tv_end, NULL);
 
-            printf("timediff %d  %d\n", tv_end.tv_sec - tv_start.tv_sec, tv_end.tv_usec - tv_start.tv_usec);
+            //printf("timediff %d  %d\n", tv_end.tv_sec - tv_start.tv_sec, tv_end.tv_usec - tv_start.tv_usec);
 
             //char tmps[30];
             //sprintf(tmps, "raw%d.raw", frame_idx);
@@ -197,6 +244,10 @@ void *process_buf(void *p){
             //save_buf_as_ppm(rgb24buf, 1920 * 1920 * 3, tmps);
             //printf("convert done\n");
             //draw
+        }
+        else{
+            printf("no frame\n");
+            stop("no frame");
         }
         //cout << "continue.." << endl;
     }

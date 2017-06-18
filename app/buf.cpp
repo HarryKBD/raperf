@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include "buf.h"
+#include "stopwatch.h"
 
 char rgb24buf[1920 * 1920 * 3];
 char RAW_BUF[RAW_FRAME_SIZE];
@@ -88,6 +89,41 @@ void dump_packet(FrameBuf *fbuf, unsigned char *data, int len){
 
 }
 
+char *get_save_buf_ptr(FrameBuf *fbuf, int max_buf_len, int *save_buf_len){
+    int buf_len; 
+    char *save_buf;
+
+    if(fbuf->head < fbuf-> tail){
+        int e;
+        e = fbuf->tail - fbuf->head;
+        if(e >= max_buf_len){
+            buf_len = max_buf_len;
+            save_buf = fbuf->head + fbuf->rcv_buf;
+            fbuf->head += buf_len;
+        }
+        else{
+            buf_len = e;
+            save_buf = fbuf->head + fbuf->rcv_buf;
+            fbuf->head += e;
+        }
+    }
+    else{
+        int rleft = RCV_BUFFER_SIZE - fbuf->head;
+        if(rleft > max_buf_len){
+            buf_len = max_buf_len;
+            save_buf = fbuf->head + fbuf->rcv_buf;
+            fbuf->head += buf_len;
+        }
+        else{
+            buf_len = rleft;
+            save_buf = fbuf->head + fbuf->rcv_buf;
+            fbuf->head = 0;
+        }
+    }
+    *save_buf_len = buf_len;
+    return save_buf;
+}
+
 int save_data(FrameBuf *fbuf, char *data, int len){
     int e;
     char *buf = fbuf->rcv_buf;
@@ -123,6 +159,15 @@ int save_data(FrameBuf *fbuf, char *data, int len){
         }
     }
     return len;
+}
+
+
+void adjust_buf_header(FrameBuf *fbuf, int size){
+    fbuf->head -= size;
+}
+
+void adjust_buf_tail(FrameBuf *fbuf, int size){
+    fbuf->tail += size;
 }
 
 int get_data(FrameBuf *fbuf, char *p, int len){
@@ -172,12 +217,14 @@ int MAGIC_LEN  = sizeof(FRAME_MAGIC);
 char temp_frame[8];
 
 char *get_a_frame(FrameBuf *fbuf, char *frame, int len){
+    //start();
     int read_len = get_data(fbuf, temp_frame, 8);
 
     if(read_len != 8){
         printf("Critical Error.... \n");
         return NULL;
     }
+    //stop("get header");
 
     //dump_packet(fbuf, (unsigned char *)temp_frame, 8);
 
@@ -187,17 +234,27 @@ char *get_a_frame(FrameBuf *fbuf, char *frame, int len){
         getchar();
         return NULL;
     }
+    //stop("cmp");
 
+#if 1
+    char *frame_ptr = fbuf->rcv_buf + fbuf->tail;
+    adjust_buf_tail(fbuf, len); 
+    return frame_ptr;
+#endif
+
+#if 0
     read_len = get_data(fbuf, frame, len);
-
     if(read_len != len){
         printf("Critical Error3\n");
         return NULL;
     }
+    stop("full frame copy");
+
 
     //printf("get_a_frame frame len %d\n", read_len);
 
     return frame;
+#endif
 }
 
 int get_data_cnt(FrameBuf *fbuf){

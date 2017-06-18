@@ -1,4 +1,5 @@
 
+
 #define FRAME_WIDTH 1920
 #define FRAME_HEIGHT 1920
 #define RCV_BUFFER_SIZE  5*1024*1024*100 //1024 frames
@@ -7,10 +8,13 @@
 
 
 typedef struct _FrameBuf{
+    int id;
     int sd;
     int head;
     int tail;
     int rcv_running;
+    pthread_cond_t cond;
+    pthread_mutex_t mutex;
     char *rgb24buf;  // Buffer for saving RGB24 format from RAW(raw_buf)
     char *raw_buf;  // Buffer to get one from from rcv_buf
     char *rcv_buf;  // Buffer for saving frames from client(Pi)
@@ -26,3 +30,5 @@ char *get_a_frame(FrameBuf *pbuf, char *frame, int len);
 void save_buf_to_file(char *buf, int len, char *fname);
 void save_buf_as_ppm(char *buf, int len, char *fname);
 void release_buffer(FrameBuf *pbuf);
+char *get_save_buf_ptr(FrameBuf *fbuf, int max_buf, int *szve_buf_len);
+void adjust_buf_header(FrameBuf *fbuf, int size);

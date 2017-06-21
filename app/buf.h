@@ -4,6 +4,7 @@
 #define FRAME_HEIGHT 1920
 #define RCV_BUFFER_SIZE  5*1024*1024*100 //1024 frames
 #define RAW_FRAME_SIZE 4608000
+//#define RAW_FRAME_SIZE 3686400
 #define RGB24_BUFFER_SIZE FRAME_WIDTH*FRAME_HEIGHT*3  //3 bytes for each pixel
 
 
@@ -13,6 +14,7 @@ typedef struct _FrameBuf{
     int head;
     int tail;
     int rcv_running;
+    char client_ip[30];
     pthread_cond_t cond;
     pthread_mutex_t mutex;
     char *rgb24buf;  // Buffer for saving RGB24 format from RAW(raw_buf)
@@ -21,7 +23,7 @@ typedef struct _FrameBuf{
     void *puser;  //GTK Display user specific data
 }FrameBuf;
 
-FrameBuf *init_buffer(void *p);
+FrameBuf *init_buffer(char *client_ip, int id);
 int save_data(FrameBuf *pbuf, char *data, int len);
 int get_data(FrameBuf *pbuf, char *p, int len);
 int get_buf_size(FrameBuf *pbuf);

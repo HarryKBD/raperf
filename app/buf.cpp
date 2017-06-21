@@ -11,16 +11,18 @@
 char rgb24buf[1920 * 1920 * 3];
 char RAW_BUF[RAW_FRAME_SIZE];
 
-FrameBuf *init_buffer(void *p){
+FrameBuf *init_buffer(char *ip, int id){
     FrameBuf *fbuf;
     fbuf = (FrameBuf *)malloc(sizeof (FrameBuf));
+    fbuf->id = id;
+    strcpy(fbuf->client_ip, ip);
     fbuf->head = 0;
     fbuf->tail = 0;
     fbuf->rcv_buf = (char *)malloc(RCV_BUFFER_SIZE);
     fbuf->rgb24buf = (char *)malloc(RGB24_BUFFER_SIZE);
     fbuf->raw_buf = (char *)malloc(RAW_FRAME_SIZE);
     fbuf->rcv_running = 1;
-    fbuf->puser = p;
+    fbuf->puser = NULL;
     return fbuf;
 }
 

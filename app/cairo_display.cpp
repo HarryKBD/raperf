@@ -11,12 +11,19 @@
 
 #include "cairo_display.h"
 
+#define WINDOW_SIZE_X  800
+#define WINDOW_SIZE_Y  600
+
+#define IMAGE_SIZE_X 1920
+#define IMAGE_SIZE_Y 1920
+
 static void do_drawing(GTK_DATA *p, cairo_t *cr)
 {
     if(!p->g_image){
         printf("Image is not ready.\n");
         return;
     }
+    cairo_scale(cr, WINDOW_SIZE_X/(float)IMAGE_SIZE_X, WINDOW_SIZE_Y/(float)IMAGE_SIZE_Y);
     cairo_set_source_surface(cr, p->g_image , 0, 0);
     cairo_paint(cr);    
 }
@@ -78,8 +85,9 @@ void *draw_thread_main(void *p){
 
   gtk_window_set_position(GTK_WINDOW(pd->g_main_window), GTK_WIN_POS_CENTER);
   //gtk_window_set_default_size(GTK_WINDOW(pd->g_main_window), 640, 480); 
-  gtk_window_set_default_size(GTK_WINDOW(pd->g_main_window), 1024, 768); 
-  gtk_window_set_title(GTK_WINDOW(pd->g_main_window), "Image");
+  //gtk_window_set_default_size(GTK_WINDOW(pd->g_main_window), 1024, 768); 
+  gtk_window_set_default_size(GTK_WINDOW(pd->g_main_window), WINDOW_SIZE_X, WINDOW_SIZE_Y); 
+  gtk_window_set_title(GTK_WINDOW(pd->g_main_window), pd->title);
 
   gtk_widget_show_all(pd->g_main_window);
   gtk_widget_queue_draw(pd->g_main_window);

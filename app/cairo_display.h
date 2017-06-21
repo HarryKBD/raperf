@@ -7,6 +7,7 @@
 
 typedef struct tagGTK_DATA{
     pthread_t draw_thread;
+    char title[20];
     GtkWidget *g_main_window = NULL;
     cairo_surface_t *g_image = NULL;
     char *rgb32buf;

@@ -102,27 +102,23 @@ int main(int argc, char * argv[])
         cout << "new connection: " << clienthost << ":" << clientservice << endl;
 
         FrameBuf *pbuf;
-        GTK_DATA *pDisplay = init_display();
 
-        /*
-        if(!pDisplay){
-            cout << "display init fail." << endl;
-            continue;
-        }
-        */
-
+        
         static int thread_idx = 0;
 
-        //pDisplay = NULL;
-        pbuf = init_buffer((void *)pDisplay);
+        pbuf = init_buffer(clienthost, thread_idx++);
 
-        pbuf->id = ++thread_idx;
         pbuf->sd = UDPSOCKET(recver);
 
         //pbuf->cond = PTHREAD_COND_INITIALIZER;
         //pbuf->mutex = PTHREAD_MUTEX_INITIALIZER;
         pthread_mutex_init(&pbuf->mutex, NULL);
         pthread_cond_init(&pbuf->cond, NULL);
+
+
+        GTK_DATA *pDisplay = init_display();
+        strcpy(pDisplay->title, pbuf->client_ip);
+        pbuf->puser = (void *)pDisplay;
 
         pthread_t rcvthread;
         pthread_t readthread;
@@ -148,7 +144,7 @@ void *recvdata(void *p)
     int buf_size = 100000;
     buf = new char[buf_size];
     int rs;
-    int saved_len = 0;
+    //int saved_len = 0;
     cout << "Creating recving packet from PI thread" << endl;
 
     while (1){
@@ -237,11 +233,11 @@ void *process_buf(void *p){
 
             //printf("timediff %d  %d\n", tv_end.tv_sec - tv_start.tv_sec, tv_end.tv_usec - tv_start.tv_usec);
 
-            //char tmps[30];
+            //char tmps[60];
             //sprintf(tmps, "raw%d.raw", frame_idx);
             //save_buf_to_file(RAW_BUF, RAW_FRAME_SIZE, tmps);
-            //sprintf(tmps, "raw%d.ppm", frame_idx);
-            //save_buf_as_ppm(rgb24buf, 1920 * 1920 * 3, tmps);
+            //sprintf(tmps, "./data/raw_%d_%d.ppm", pbuf->id, frame_idx);
+            //save_buf_as_ppm(pbuf->rgb24buf, 1920 * 1920 * 3, tmps);
             //printf("convert done\n");
             //draw
         }
